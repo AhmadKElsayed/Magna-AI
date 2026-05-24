@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from dotenv import load_dotenv
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 from schema import (
     GenerateTextRequest, GenerateTextResponse,
@@ -35,6 +36,14 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception_type(Exception)
+)
+def execute_supabase(query):
+    return query.execute()
+
 @app.post("/api/generate-text", response_model=GenerateTextResponse)
 async def generate_text(request: GenerateTextRequest):
     try:
@@ -57,12 +66,12 @@ async def generate_text(request: GenerateTextRequest):
             "audience": request.audience,
             "content_type": request.content_type,
             "generated_text": text,
-            "description": request.description or "",
+            "description": request.description or None,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         
         if supabase:
-            supabase.table("posts").insert(post_data).execute()
+            execute_supabase(supabase.table("posts").insert(post_data))
             
         return GenerateTextResponse(id=post_id, text=text, post_id=post_id)
     except Exception as e:
@@ -84,7 +93,7 @@ async def generate_image(request: GenerateImageRequest):
             update_data = {"image_url": image_url}
             if request.image_prompt:
                 update_data["image_prompt"] = request.image_prompt
-            supabase.table("posts").update(update_data).eq("id", request.post_id).execute()
+            execute_supabase(supabase.table("posts").update(update_data).eq("id", request.post_id))
             
         return GenerateImageResponse(post_id=request.post_id, image_url=image_url)
     except Exception as e:
@@ -108,7 +117,7 @@ async def improve_text(request: ImproveTextRequest):
         }
         
         if supabase:
-            supabase.table("refined_posts").insert(post_data).execute()
+            execute_supabase(supabase.table("refined_posts").insert(post_data))
         
         return ImproveTextResponse(
             original_text=request.text,
@@ -123,7 +132,7 @@ async def get_history(session_id: str = Query(...)):
     if not supabase:
         return []
     try:
-        response = supabase.table("posts").select("*").eq("session_id", session_id).order("created_at", desc=True).execute()
+        response = execute_supabase(supabase.table("posts").select("*").eq("session_id", session_id).order("created_at", desc=True))
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -133,7 +142,7 @@ async def delete_history(post_id: str, session_id: str = Query(...)):
     if not supabase:
         return {"status": "success", "message": f"Deleted {post_id} (mock)"}
     try:
-        supabase.table("posts").delete().eq("id", post_id).eq("session_id", session_id).execute()
+        execute_supabase(supabase.table("posts").delete().eq("id", post_id).eq("session_id", session_id))
         return {"status": "success", "message": f"Deleted {post_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -143,7 +152,7 @@ async def get_refined_history(session_id: str = Query(...)):
     if not supabase:
         return []
     try:
-        response = supabase.table("refined_posts").select("*").eq("session_id", session_id).order("created_at", desc=True).execute()
+        response = execute_supabase(supabase.table("refined_posts").select("*").eq("session_id", session_id).order("created_at", desc=True))
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -153,7 +162,7 @@ async def delete_refined_history(post_id: str, session_id: str = Query(...)):
     if not supabase:
         return {"status": "success", "message": f"Deleted {post_id} (mock)"}
     try:
-        supabase.table("refined_posts").delete().eq("id", post_id).eq("session_id", session_id).execute()
+        execute_supabase(supabase.table("refined_posts").delete().eq("id", post_id).eq("session_id", session_id))
         return {"status": "success", "message": f"Deleted {post_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

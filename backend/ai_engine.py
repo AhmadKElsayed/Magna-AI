@@ -6,6 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -17,6 +18,11 @@ def get_text_llm():
         temperature=0.7,
     )
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception_type(Exception)
+)
 def generate_content(topic: str, tone: str, audience: str, content_type: str, description: str = "") -> str:
     llm = get_text_llm()
     
@@ -135,6 +141,7 @@ class GraphState(TypedDict):
     refined_text: str
     explanation: str
 
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3), retry=retry_if_exception_type(Exception))
 def analyze_text(state: GraphState):
     llm = get_text_llm()
     prompt = (
@@ -146,6 +153,7 @@ def analyze_text(state: GraphState):
     res = llm.invoke([HumanMessage(content=prompt)])
     return {"analysis": res.content}
 
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3), retry=retry_if_exception_type(Exception))
 def refine_text(state: GraphState):
     llm = get_text_llm()
     prompt = (
@@ -157,6 +165,7 @@ def refine_text(state: GraphState):
     res = llm.invoke([HumanMessage(content=prompt)])
     return {"refined_text": res.content}
 
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3), retry=retry_if_exception_type(Exception))
 def generate_explanation(state: GraphState):
     llm = get_text_llm()
     prompt = (
@@ -189,6 +198,11 @@ def improve_content(text: str, goal: str):
 
 # --- Image Generation ---
 
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    retry=retry_if_exception_type(Exception)
+)
 async def generate_matching_image(topic: str, tone: str, generated_text: str, image_prompt: str = "") -> str:
     # 1. Build a visual prompt
     llm = get_text_llm()
@@ -250,7 +264,7 @@ async def generate_matching_image(topic: str, tone: str, generated_text: str, im
         except httpx.HTTPStatusError as e:
             print(f"Image generation failed: {e}")
             print(f"Error Details: {e.response.text}")
+            raise # Re-raise for tenacity to catch and retry
         except Exception as e:
             print(f"Image generation failed: {e}")
-            
-    return "https://via.placeholder.com/1024x1024.png?text=Image+Generation+Failed"
+            raise # Re-raise for tenacity to catch and retry
