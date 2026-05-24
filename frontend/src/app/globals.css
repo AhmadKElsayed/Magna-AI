@@ -52,6 +52,7 @@ h1, h2, h3, h4 {
 .header h1 {
   background: linear-gradient(90deg, #fff, #a1a1aa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
