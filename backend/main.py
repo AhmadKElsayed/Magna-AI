@@ -57,6 +57,7 @@ async def generate_text(request: GenerateTextRequest):
             "audience": request.audience,
             "content_type": request.content_type,
             "generated_text": text,
+            "description": request.description or "",
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         
@@ -80,7 +81,10 @@ async def generate_image(request: GenerateImageRequest):
         
         # Update post in Supabase
         if supabase:
-            supabase.table("posts").update({"image_url": image_url}).eq("id", request.post_id).execute()
+            update_data = {"image_url": image_url}
+            if request.image_prompt:
+                update_data["image_prompt"] = request.image_prompt
+            supabase.table("posts").update(update_data).eq("id", request.post_id).execute()
             
         return GenerateImageResponse(post_id=request.post_id, image_url=image_url)
     except Exception as e:

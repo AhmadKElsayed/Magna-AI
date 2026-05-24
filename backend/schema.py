@@ -45,6 +45,8 @@ class PostDB(BaseModel):
     content_type: str
     generated_text: str
     image_url: Optional[str] = None
+    description: Optional[str] = None
+    image_prompt: Optional[str] = None
     created_at: datetime
 
 class RefinedPostDB(BaseModel):

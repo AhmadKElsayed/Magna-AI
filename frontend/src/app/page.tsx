@@ -34,7 +34,7 @@ export default function Home() {
   const [refinedPosts, setRefinedPosts] = useState<RefinedPost[]>([]);
   const [activeTab, setActiveTab] = useState("generate"); // 'generate' | 'improve'
   const [expandedPost, setExpandedPost] = useState<Post | null>(null);
-  
+
   // Generator State
   const [topic, setTopic] = useState("");
   const [description, setDescription] = useState("");
@@ -50,7 +50,7 @@ export default function Home() {
   const [improveText, setImproveText] = useState("");
   const [improveGoal, setImproveGoal] = useState("Make it shorter");
   const [improving, setImproving] = useState(false);
-  const [improvedResult, setImprovedResult] = useState<{text: string, explanation: string} | null>(null);
+  const [improvedResult, setImprovedResult] = useState<{ text: string, explanation: string } | null>(null);
 
   useEffect(() => {
     // Generate simple session ID
@@ -91,13 +91,13 @@ export default function Home() {
       await fetch(`${API_URL}/generate-text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          topic, 
-          tone, 
-          audience, 
-          content_type: contentType === 'Other' ? customContentType : contentType, 
+        body: JSON.stringify({
+          topic,
+          tone,
+          audience,
+          content_type: contentType === 'Other' ? customContentType : contentType,
           description,
-          session_id: sessionId 
+          session_id: sessionId
         })
       });
       await fetchHistory(sessionId);
@@ -113,12 +113,12 @@ export default function Home() {
       await fetch(`${API_URL}/generate-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          post_id: post.id, 
-          text: post.generated_text, 
-          topic: post.topic, 
+        body: JSON.stringify({
+          post_id: post.id,
+          text: post.generated_text,
+          topic: post.topic,
           tone: post.tone,
-          image_prompt: imagePrompt 
+          image_prompt: imagePrompt
         })
       });
       await fetchHistory(sessionId);
@@ -131,7 +131,7 @@ export default function Home() {
   const handleExportPDF = (post: Post) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
+
     printWindow.document.write(`
       <html>
         <head>
@@ -226,15 +226,16 @@ export default function Home() {
                 <div className="form-group">
                   <label>Content Type</label>
                   <select className="select" value={contentType} onChange={e => setContentType(e.target.value)}>
-                    <option>Blog</option>
-                    <option>LinkedIn</option>
-                    <option>Twitter Thread</option>
-                    <option>Instagram Caption</option>
-                    <option>Facebook Post</option>
-                    <option>Email Newsletter</option>
-                    <option>Product Description</option>
-                    <option>YouTube Script</option>
                     <option>Ad Copy</option>
+                    <option>Blog</option>
+                    <option>Email Newsletter</option>
+                    <option>Facebook Post</option>
+                    <option>Instagram Caption</option>
+                    <option>Landing Page</option>
+                    <option>LinkedIn</option>
+                    <option>Product Description</option>
+                    <option>Twitter Thread</option>
+                    <option>YouTube Script</option>
                     <option>Other</option>
                   </select>
                 </div>
@@ -258,11 +259,11 @@ export default function Home() {
                 </div>
                 <div className="form-group">
                   <label>Additional Description (Optional)</label>
-                  <textarea className="textarea" style={{minHeight: '80px'}} placeholder="Any specific requirements or instructions for the content..." value={description} onChange={e => setDescription(e.target.value)} />
+                  <textarea className="textarea" style={{ minHeight: '80px' }} placeholder="Any specific requirements or instructions for the content..." value={description} onChange={e => setDescription(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Custom Image Prompt (Optional)</label>
-                  <textarea className="textarea" style={{minHeight: '80px'}} placeholder="Specific instructions for the generated image..." value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} />
+                  <textarea className="textarea" style={{ minHeight: '80px' }} placeholder="Specific instructions for the generated image..." value={imagePrompt} onChange={e => setImagePrompt(e.target.value)} />
                 </div>
                 <button type="submit" className="btn" disabled={generatingText}>
                   {generatingText && <span className="spinner"></span>}
@@ -285,9 +286,9 @@ export default function Home() {
                 </button>
               </form>
             )}
-            
+
             {improvedResult && activeTab === 'improve' && (
-              <div style={{marginTop: '1.5rem'}}>
+              <div style={{ marginTop: '1.5rem' }}>
                 <div className="explanation-box">
                   <strong>AI Explanation:</strong> {improvedResult.explanation}
                 </div>
@@ -305,14 +306,14 @@ export default function Home() {
           {activeTab === 'generate' ? (
             <div className="history-grid">
               {posts.map(post => (
-                 <div key={post.id} className="history-card" onClick={() => setExpandedPost(post)}>
+                <div key={post.id} className="history-card" onClick={() => setExpandedPost(post)}>
                   {post.image_url ? (
                     <div style={{ position: 'relative' }}>
                       <img src={post.image_url} alt="Generated" className="history-img" />
                       <a href={post.image_url} download={`image-${post.id}.png`} className="btn btn-secondary" style={{ position: 'absolute', bottom: '10px', right: '10px', padding: '0.4rem 0.8rem', fontSize: '0.8rem', width: 'auto' }}>Download</a>
                     </div>
                   ) : (
-                    <div className="history-img" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#52525b'}}>
+                    <div className="history-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#52525b' }}>
                       No Image Generated
                     </div>
                   )}
@@ -325,8 +326,8 @@ export default function Home() {
                     <div className="history-text"><ReactMarkdown>{post.generated_text}</ReactMarkdown></div>
                   </div>
                   <div className="history-actions" onClick={e => e.stopPropagation()}>
-                    <button className="btn btn-secondary" disabled={!!post.image_url || generatingImageFor === post.id} onClick={() => handleGenerateImage(post)}>
-                      {generatingImageFor === post.id ? "Generating..." : (post.image_url ? "Image Created" : "Generate Image")}
+                    <button className="btn btn-secondary" disabled={generatingImageFor === post.id} onClick={() => handleGenerateImage(post)}>
+                      {generatingImageFor === post.id ? "Generating..." : (post.image_url ? "Regenerate Image" : "Generate Image")}
                     </button>
                     <button className="btn btn-danger" onClick={() => handleDelete(post.id)}>Delete</button>
                     <button className="btn btn-secondary" onClick={() => handleExportPDF(post)}>Export PDF</button>
@@ -334,7 +335,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              {posts.length === 0 && <p style={{color: 'var(--text-secondary)', marginTop: '2rem'}}>No generated content yet. Start creating!</p>}
+              {posts.length === 0 && <p style={{ color: 'var(--text-secondary)', marginTop: '2rem' }}>No generated content yet. Start creating!</p>}
             </div>
           ) : (
             <div className="history-grid">
@@ -342,7 +343,7 @@ export default function Home() {
                 <div key={post.id} className="history-card">
                   <div className="history-content" style={{ padding: '1.5rem', maxHeight: 'none' }}>
                     <div className="explanation-box" style={{ marginBottom: '1rem' }}>
-                      <strong>Goal:</strong> {post.goal} <br/>
+                      <strong>Goal:</strong> {post.goal} <br />
                       <strong>Explanation:</strong> {post.explanation}
                     </div>
                     <div className="history-text" style={{ maxHeight: '250px' }}><ReactMarkdown>{post.refined_text}</ReactMarkdown></div>
@@ -353,7 +354,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              {refinedPosts.length === 0 && <p style={{color: 'var(--text-secondary)', marginTop: '2rem'}}>No refined content yet. Start improving!</p>}
+              {refinedPosts.length === 0 && <p style={{ color: 'var(--text-secondary)', marginTop: '2rem' }}>No refined content yet. Start improving!</p>}
             </div>
           )}
         </main>
