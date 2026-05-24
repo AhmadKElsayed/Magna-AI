@@ -228,7 +228,7 @@ async def generate_matching_image(topic: str, tone: str, generated_text: str, im
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Magna AI Suite"
+        "X-Title": "MAGNA AI Generator"
     }
     data = {
         "model": "black-forest-labs/flux.2-klein-4b",

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Magna AI Suite",
+  title: "MAGNA AI Generator",
   description: "AI Content Marketing Generator",
 };
 
