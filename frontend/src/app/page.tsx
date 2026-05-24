@@ -34,6 +34,7 @@ export default function Home() {
   const [refinedPosts, setRefinedPosts] = useState<RefinedPost[]>([]);
   const [activeTab, setActiveTab] = useState("generate"); // 'generate' | 'improve'
   const [expandedPost, setExpandedPost] = useState<Post | null>(null);
+  const [postToDelete, setPostToDelete] = useState<{ id: string, type: 'generate' | 'improve' } | null>(null);
 
   // Generator State
   const [topic, setTopic] = useState("");
@@ -203,6 +204,18 @@ export default function Home() {
     setImproving(false);
   };
 
+  const confirmDeletePost = (id: string, type: 'generate' | 'improve') => setPostToDelete({ id, type });
+  const cancelDelete = () => setPostToDelete(null);
+  const executeDelete = async () => {
+    if (!postToDelete) return;
+    if (postToDelete.type === 'generate') {
+      await handleDelete(postToDelete.id);
+    } else {
+      await handleDeleteRefined(postToDelete.id);
+    }
+    setPostToDelete(null);
+  };
+
   return (
     <div className="container">
       <header className="header">
@@ -307,6 +320,16 @@ export default function Home() {
             <div className="history-grid">
               {posts.map(post => (
                 <div key={post.id} className="history-card" onClick={() => setExpandedPost(post)}>
+                  {postToDelete?.id === post.id && postToDelete?.type === 'generate' && (
+                    <div className="delete-overlay" onClick={e => e.stopPropagation()}>
+                      <h4>Delete this generation?</h4>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>This action cannot be undone.</p>
+                      <div className="delete-actions">
+                        <button className="btn btn-danger" onClick={executeDelete}>Yes, Delete</button>
+                        <button className="btn btn-secondary" onClick={cancelDelete}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
                   {post.image_url ? (
                     <div style={{ position: 'relative' }}>
                       <img src={post.image_url} alt="Generated" className="history-img" />
@@ -326,12 +349,12 @@ export default function Home() {
                     <div className="history-text"><ReactMarkdown>{post.generated_text}</ReactMarkdown></div>
                   </div>
                   <div className="history-actions" onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(post.generated_text)}>Copy Text</button>
                     <button className="btn btn-secondary" disabled={generatingImageFor === post.id} onClick={() => handleGenerateImage(post)}>
                       {generatingImageFor === post.id ? "Generating..." : (post.image_url ? "Regenerate Image" : "Generate Image")}
                     </button>
-                    <button className="btn btn-danger" onClick={() => handleDelete(post.id)}>Delete</button>
                     <button className="btn btn-secondary" onClick={() => handleExportPDF(post)}>Export PDF</button>
-                    <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(post.generated_text)}>Copy Text</button>
+                    <button className="btn btn-danger" onClick={() => confirmDeletePost(post.id, 'generate')}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -341,6 +364,16 @@ export default function Home() {
             <div className="history-grid">
               {refinedPosts.map(post => (
                 <div key={post.id} className="history-card">
+                  {postToDelete?.id === post.id && postToDelete?.type === 'improve' && (
+                    <div className="delete-overlay" onClick={e => e.stopPropagation()}>
+                      <h4>Delete this refined text?</h4>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>This action cannot be undone.</p>
+                      <div className="delete-actions">
+                        <button className="btn btn-danger" onClick={executeDelete}>Yes, Delete</button>
+                        <button className="btn btn-secondary" onClick={cancelDelete}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
                   <div className="history-content" style={{ padding: '1.5rem', maxHeight: 'none' }}>
                     <div className="explanation-box" style={{ marginBottom: '1rem' }}>
                       <strong>Goal:</strong> {post.goal} <br />
@@ -348,9 +381,9 @@ export default function Home() {
                     </div>
                     <div className="history-text" style={{ maxHeight: '250px' }}><ReactMarkdown>{post.refined_text}</ReactMarkdown></div>
                   </div>
-                  <div className="history-actions" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                    <button className="btn btn-danger" onClick={() => handleDeleteRefined(post.id)}>Delete</button>
+                  <div className="history-actions" onClick={e => e.stopPropagation()}>
                     <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(post.refined_text)}>Copy Refined Text</button>
+                    <button className="btn btn-danger" onClick={() => confirmDeletePost(post.id, 'improve')}>Delete</button>
                   </div>
                 </div>
               ))}
