@@ -509,35 +509,36 @@ export default function Home() {
             </main>
           </div>
 
-          {expandedPost && (
-            <div className="modal-overlay" onClick={() => setExpandedPost(null)}>
-              <button className="modal-close" onClick={() => setExpandedPost(null)}>&times;</button>
-              <div className="modal-content" onClick={e => e.stopPropagation()}>
-                {expandedPost.image_url && (
-                  <div style={{ position: 'relative' }}>
-                    <img src={expandedPost.image_url} alt="Generated" style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'cover', background: '#000' }} />
-                    <a href={expandedPost.image_url} download={`image-${expandedPost.id}.png`} className="btn btn-secondary" style={{ position: 'absolute', bottom: '15px', right: '15px', padding: '0.5rem 1rem', width: 'auto', background: 'rgba(18, 18, 20, 0.8)', backdropFilter: 'blur(4px)' }}>Download Image</a>
-                  </div>
-                )}
-                <div style={{ padding: '2rem' }}>
-                  <div className="history-meta" style={{ marginBottom: '1rem' }}>
-                    <span className="badge">{expandedPost.content_type}</span>
-                    <span className="badge">{expandedPost.tone}</span>
-                    <span className="badge">Audience: {expandedPost.audience}</span>
-                  </div>
-                  <div className="history-text" style={{ fontSize: '1.05rem', maxHeight: 'none', lineHeight: '1.7' }}>
-                    <ReactMarkdown>{expandedPost.generated_text}</ReactMarkdown>
-                  </div>
-                  <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
-                    <button className="btn btn-secondary" onClick={() => handleExportPDF(expandedPost)}>Export to PDF</button>
-                    <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(expandedPost.generated_text)}>Copy Text</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+      
+      {expandedPost && (
+        <div className="modal-overlay" onClick={() => setExpandedPost(null)}>
+          <button className="modal-close" onClick={() => setExpandedPost(null)}>&times;</button>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            {expandedPost.image_url && (
+              <div style={{ position: 'relative' }}>
+                <img src={expandedPost.image_url} alt="Generated" style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'cover', background: '#000' }} />
+                <a href={expandedPost.image_url} download={`image-${expandedPost.id}.png`} className="btn btn-secondary" style={{ position: 'absolute', bottom: '15px', right: '15px', padding: '0.5rem 1rem', width: 'auto', background: 'rgba(18, 18, 20, 0.8)', backdropFilter: 'blur(4px)' }}>Download Image</a>
+              </div>
+            )}
+            <div style={{ padding: '2rem' }}>
+              <div className="history-meta" style={{ marginBottom: '1rem' }}>
+                <span className="badge">{expandedPost.content_type}</span>
+                <span className="badge">{expandedPost.tone}</span>
+                <span className="badge">Audience: {expandedPost.audience}</span>
+              </div>
+              <div className="history-text" style={{ fontSize: '1.05rem', maxHeight: 'none', lineHeight: '1.7' }}>
+                <ReactMarkdown>{expandedPost.generated_text}</ReactMarkdown>
+              </div>
+              <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
+                <button className="btn btn-secondary" onClick={() => handleExportPDF(expandedPost)}>Export to PDF</button>
+                <button className="btn btn-secondary" onClick={() => navigator.clipboard.writeText(expandedPost.generated_text)}>Copy Text</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
