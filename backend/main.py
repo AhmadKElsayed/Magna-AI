@@ -11,7 +11,8 @@ from schema import (
     GenerateTextRequest, GenerateTextResponse,
     GenerateImageRequest, GenerateImageResponse,
     ImproveTextRequest, ImproveTextResponse,
-    PostDB, RefinedPostDB, BrandProfileRequest, BrandProfileDB
+    PostDB, RefinedPostDB, BrandProfileRequest, BrandProfileDB,
+    MigrateSessionRequest
 )
 from ai_engine import generate_content, improve_content, generate_matching_image
 from supabase import create_client, Client
@@ -34,7 +35,10 @@ app.add_middleware(
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+admin_supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY else None
 
 @retry(
     wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -154,6 +158,19 @@ async def delete_history(post_id: str, session_id: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/migrate-session")
+async def migrate_session(request: MigrateSessionRequest):
+    if not supabase:
+        return {"status": "skipped"}
+    try:
+        # Update posts
+        execute_supabase(supabase.table("posts").update({"session_id": request.new_user_id}).eq("session_id", request.old_session_id))
+        # Update refined_posts
+        execute_supabase(supabase.table("refined_posts").update({"session_id": request.new_user_id}).eq("session_id", request.old_session_id))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/history/refined", response_model=List[RefinedPostDB])
 async def get_refined_history(session_id: str = Query(...)):
     if not supabase:
@@ -205,3 +222,25 @@ async def delete_settings(session_id: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/delete-account")
+async def delete_account(session_id: str = Query(...)):
+    if not supabase:
+        return {"status": "error", "message": "Supabase not configured"}
+    try:
+        # Delete user data
+        execute_supabase(supabase.table("posts").delete().eq("session_id", session_id))
+        execute_supabase(supabase.table("refined_posts").delete().eq("session_id", session_id))
+        execute_supabase(supabase.table("brand_profiles").delete().eq("session_id", session_id))
+        
+        # Try deleting the user from auth if service role key is used
+        try:
+            if admin_supabase:
+                admin_supabase.auth.admin.delete_user(session_id)
+            else:
+                print("Skipped deleting auth user: SUPABASE_SERVICE_ROLE_KEY is not configured.")
+        except Exception as auth_err:
+            print(f"Could not delete user from auth: {auth_err}")
+            
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabaseClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
@@ -17,26 +18,38 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   useEffect(() => {
-    let sid = localStorage.getItem("magna_session_id");
-    if (!sid) {
-      sid = Math.random().toString(36).substring(2, 15);
-      localStorage.setItem("magna_session_id", sid);
-    }
-    setSessionId(sid);
-    
-    fetch(`${API_URL}/settings?session_id=${sid}`)
-      .then(res => res.json())
-      .then(data => {
+    const initSettings = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      let sid = session?.user?.id;
+      
+      if (!sid) {
+        sid = localStorage.getItem("magna_session_id") || "";
+        if (!sid) {
+          sid = Math.random().toString(36).substring(2, 15);
+          localStorage.setItem("magna_session_id", sid);
+        }
+      }
+      setSessionId(sid);
+      
+      try {
+        const res = await fetch(`${API_URL}/settings?session_id=${sid}`);
+        const data = await res.json();
         if (data && !data.error) {
           setCompanyName(data.company_name || "");
           setCoreValues(data.core_values || "");
           setTargetDemographic(data.target_demographic || "");
           setWordsToAvoid(data.words_to_avoid || "");
         }
-      })
-      .catch(err => console.error("Error fetching settings:", err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Error fetching settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    initSettings();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -74,6 +87,22 @@ export default function SettingsPage() {
       console.error("Error deleting settings:", err);
     }
     setSaving(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm("CRITICAL WARNING: This will permanently delete your account and ALL your generated posts, refined texts, and brand profiles. This action CANNOT be undone. Are you absolutely sure?")) return;
+    
+    setDeletingAccount(true);
+    try {
+      await fetch(`${API_URL}/delete-account?session_id=${sessionId}`, { method: "DELETE" });
+      await supabase.auth.signOut();
+      localStorage.removeItem("magna_session_id");
+      router.push('/');
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      alert("Failed to delete account. Please try again later.");
+    }
+    setDeletingAccount(false);
   };
 
   return (
@@ -132,6 +161,25 @@ export default function SettingsPage() {
             </form>
           )}
         </main>
+        
+        {!loading && (
+          <main className="panel" style={{ marginTop: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+            <h2 className="panel-title" style={{ color: '#ef4444', marginBottom: '1rem' }}>Danger Zone</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+              Permanently delete your account and all associated data (posts, images, brand profiles). This action is irreversible.
+            </p>
+            <button 
+              type="button" 
+              className="btn btn-danger" 
+              disabled={deletingAccount} 
+              onClick={handleDeleteAccount} 
+              style={{ width: 'auto' }}
+            >
+              {deletingAccount ? 'Deleting...' : 'Delete Account'}
+            </button>
+          </main>
+        )}
+
       </div>
     </div>
   );

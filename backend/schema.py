@@ -58,6 +58,10 @@ class RefinedPostDB(BaseModel):
     explanation: str
     created_at: datetime
 
+class MigrateSessionRequest(BaseModel):
+    old_session_id: str
+    new_user_id: str
+
 class BrandProfileRequest(BaseModel):
     session_id: str
     company_name: Optional[str] = None

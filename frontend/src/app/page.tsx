@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
+import Auth from '../components/Auth';
+import { supabase } from '../lib/supabaseClient';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
@@ -56,46 +58,129 @@ export default function Home() {
   const [improving, setImproving] = useState(false);
   const [improvedResult, setImprovedResult] = useState<{ text: string, explanation: string } | null>(null);
 
-  useEffect(() => {
-    // Generate simple session ID
-    let sid = localStorage.getItem("magna_session_id");
-    if (!sid) {
-      sid = Math.random().toString(36).substring(2, 15);
-      localStorage.setItem("magna_session_id", sid);
-    }
-    setSessionId(sid);
+  const [user, setUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-    const loadAll = async () => {
-      setLoadingHistory(true);
-      await Promise.all([
-        fetchHistory(sid),
-        fetchRefinedHistory(sid)
-      ]);
-      setLoadingHistory(false);
-      setTimeout(() => setShowLoader(false), 600);
+  useEffect(() => {
+    // Check auth session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        await initApp(session.user.id);
+      } else {
+        setAuthChecked(true);
+      }
     };
-    loadAll();
+    checkSession();
   }, []);
 
-  const fetchHistory = async (sid: string) => {
+  const initApp = async (uid: string) => {
+    setSessionId(uid);
+    
+    const cachedPosts = sessionStorage.getItem("magna_cache_posts");
+    const cachedRefined = sessionStorage.getItem("magna_cache_refined");
+    
+    if (cachedPosts && cachedRefined) {
+      setPosts(JSON.parse(cachedPosts));
+      setRefinedPosts(JSON.parse(cachedRefined));
+      setLoadingHistory(false);
+      setShowLoader(false);
+      setAuthChecked(true);
+      
+      // Silent background update
+      fetchHistory(uid);
+      fetchRefinedHistory(uid);
+      return;
+    }
+
+    setLoadingHistory(true);
+    await Promise.all([
+      fetchHistory(uid),
+      fetchRefinedHistory(uid)
+    ]);
+    setLoadingHistory(false);
+    setTimeout(() => setShowLoader(false), 600);
+    setAuthChecked(true);
+  };
+
+  const handleAuthSuccess = async (loggedInUser: any) => {
+    setUser(loggedInUser);
+    
+    // Check for anonymous migration
+    const oldSid = localStorage.getItem("magna_session_id");
+    if (oldSid) {
+      try {
+        await fetch(`${API_URL}/migrate-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ old_session_id: oldSid, new_user_id: loggedInUser.id })
+        });
+        localStorage.removeItem("magna_session_id");
+      } catch (e) {
+        console.error("Migration failed", e);
+      }
+    }
+    
+    await initApp(loggedInUser.id);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setPosts([]);
+    setRefinedPosts([]);
+    setSessionId("");
+    sessionStorage.removeItem("magna_cache_posts");
+    sessionStorage.removeItem("magna_cache_refined");
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="loader-overlay">
+        <img src="/MagnaAI.png" alt="Magna AI Logo" style={{ height: '100px', animation: 'pulse 2s infinite' }} />
+        <h2 style={{ marginTop: '1.5rem', color: 'var(--text-primary)', fontWeight: 500 }}>Loading workspace...</h2>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  async function fetchHistory(sid: string) {
     try {
       const res = await fetch(`${API_URL}/history?session_id=${sid}`);
       const data = await res.json();
-      if (Array.isArray(data)) setPosts(data);
+      if (Array.isArray(data)) {
+        setPosts(data);
+        try {
+          sessionStorage.setItem("magna_cache_posts", JSON.stringify(data));
+        } catch (err) {
+          console.warn("Storage quota exceeded, caching skipped for posts.");
+        }
+      }
     } catch (e) {
       console.error(e);
     }
-  };
+  }
 
-  const fetchRefinedHistory = async (sid: string) => {
+  async function fetchRefinedHistory(sid: string) {
     try {
       const res = await fetch(`${API_URL}/history/refined?session_id=${sid}`);
       const data = await res.json();
-      if (Array.isArray(data)) setRefinedPosts(data);
+      if (Array.isArray(data)) {
+        setRefinedPosts(data);
+        try {
+          sessionStorage.setItem("magna_cache_refined", JSON.stringify(data));
+        } catch (err) {
+          console.warn("Storage quota exceeded, caching skipped for refined posts.");
+        }
+      }
     } catch (e) {
       console.error(e);
     }
-  };
+  }
 
   const handleGenerateText = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,12 +327,19 @@ export default function Home() {
           <header className="header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src="/MagnaAI.png" alt="Magna AI Logo" style={{ height: '40px' }} />
-              <h1 style={{ margin: 0 }}>MAGNA AI Suite</h1>
+              <div>
+                <h1 style={{ margin: 0, lineHeight: 1 }}>MAGNA AI Suite</h1>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Content that converts, generated instantly.</p>
+              </div>
             </div>
-            <Link href="/settings" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: 'auto', padding: '0.6rem 1rem', textDecoration: 'none' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-              <span>Settings</span>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Link href="/settings" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0, textDecoration: 'none', borderRadius: '8px' }} title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </Link>
+              <button onClick={handleSignOut} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0, cursor: 'pointer', borderRadius: '8px' }} title="Sign Out">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              </button>
+            </div>
           </header>
 
           <div className="main-layout">
