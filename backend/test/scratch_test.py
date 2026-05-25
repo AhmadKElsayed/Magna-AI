@@ -11,7 +11,7 @@ async def test():
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Magna AI"
+        "X-Title": "Magna AI Suite"
     }
     data = {
         "model": "black-forest-labs/flux.2-klein-4b",

@@ -11,7 +11,7 @@ from schema import (
     GenerateTextRequest, GenerateTextResponse,
     GenerateImageRequest, GenerateImageResponse,
     ImproveTextRequest, ImproveTextResponse,
-    PostDB, RefinedPostDB
+    PostDB, RefinedPostDB, BrandProfileRequest, BrandProfileDB
 )
 from ai_engine import generate_content, improve_content, generate_matching_image
 from supabase import create_client, Client
@@ -47,13 +47,20 @@ def execute_supabase(query):
 @app.post("/api/generate-text", response_model=GenerateTextResponse)
 async def generate_text(request: GenerateTextRequest):
     try:
+        brand_profile_dict = {}
+        if supabase:
+            profile_res = execute_supabase(supabase.table("brand_profiles").select("*").eq("session_id", request.session_id))
+            if profile_res.data:
+                brand_profile_dict = profile_res.data[0]
+
         # Generate the text via LangChain/DeepSeek
         text = generate_content(
             topic=request.topic,
             tone=request.tone,
             audience=request.audience,
             content_type=request.content_type,
-            description=request.description or ""
+            description=request.description or "",
+            brand_profile=brand_profile_dict
         )
         
         # Save initial post to Supabase
@@ -166,3 +173,35 @@ async def delete_refined_history(post_id: str, session_id: str = Query(...)):
         return {"status": "success", "message": f"Deleted {post_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/settings")
+async def get_settings(session_id: str = Query(...)):
+    if not supabase:
+        return None
+    try:
+        response = execute_supabase(supabase.table("brand_profiles").select("*").eq("session_id", session_id))
+        return response.data[0] if response.data else None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/settings")
+async def save_settings(request: BrandProfileRequest):
+    if not supabase:
+        return {"status": "error", "message": "Supabase not configured"}
+    try:
+        data = request.model_dump(exclude_unset=True)
+        execute_supabase(supabase.table("brand_profiles").upsert(data))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/settings")
+async def delete_settings(session_id: str = Query(...)):
+    if not supabase:
+        return {"status": "error", "message": "Supabase not configured"}
+    try:
+        execute_supabase(supabase.table("brand_profiles").delete().eq("session_id", session_id))
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

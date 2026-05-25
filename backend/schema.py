@@ -57,3 +57,18 @@ class RefinedPostDB(BaseModel):
     refined_text: str
     explanation: str
     created_at: datetime
+
+class BrandProfileRequest(BaseModel):
+    session_id: str
+    company_name: Optional[str] = None
+    core_values: Optional[str] = None
+    target_demographic: Optional[str] = None
+    words_to_avoid: Optional[str] = None
+
+class BrandProfileDB(BaseModel):
+    session_id: str
+    company_name: Optional[str] = None
+    core_values: Optional[str] = None
+    target_demographic: Optional[str] = None
+    words_to_avoid: Optional[str] = None
+    created_at: datetime

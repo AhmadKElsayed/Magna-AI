@@ -23,10 +23,22 @@ def get_text_llm():
     stop=stop_after_attempt(3),
     retry=retry_if_exception_type(Exception)
 )
-def generate_content(topic: str, tone: str, audience: str, content_type: str, description: str = "") -> str:
+def generate_content(topic: str, tone: str, audience: str, content_type: str, description: str = "", brand_profile: dict = None) -> str:
     llm = get_text_llm()
     
     extra_instructions = f"\nAdditional Instructions: {description}" if description else ""
+    
+    if brand_profile:
+        bp_instructions = "\n\n--- BRAND VOICE PROFILE (CRITICAL INSTRUCTIONS) ---\n"
+        if brand_profile.get('company_name'):
+            bp_instructions += f"Company Name: {brand_profile['company_name']}\n"
+        if brand_profile.get('core_values'):
+            bp_instructions += f"Core Values to reflect: {brand_profile['core_values']}\n"
+        if brand_profile.get('target_demographic'):
+            bp_instructions += f"Target Demographic context: {brand_profile['target_demographic']}\n"
+        if brand_profile.get('words_to_avoid'):
+            bp_instructions += f"WORDS TO STRICTLY AVOID: {brand_profile['words_to_avoid']}\n"
+        extra_instructions += bp_instructions
     
     if content_type.lower() == "blog":
         system_prompt = (
@@ -210,7 +222,10 @@ async def generate_matching_image(topic: str, tone: str, generated_text: str, im
         "You are an expert visual prompt engineer for diffusion models. "
         "Convert the text intent into a highly descriptive, comma-separated visual prompt.\n"
         "Format: [Main Subject], [Action/Setting], [Lighting/Atmosphere], [Art Style/Medium/Camera Angle].\n"
-        "Keep it strictly under 50 words. CRITICAL: Output ONLY the prompt string. No markdown, no quotes, no introductory text."
+        "CRITICAL CONSTRAINTS:\n"
+        "1. Keep it strictly under 50 words.\n"
+        "2. The prompt MUST be entirely safe for work (SFW). Absolutely NO violent, explicit, or sensitive, words.\n"
+        "3. Output ONLY the prompt string. No markdown, no quotes, no introductory text."
     )
     
     extra_instructions = f"\nUser's Specific Image Instructions: {image_prompt.strip()}" if image_prompt and image_prompt.strip() else ""
@@ -228,7 +243,7 @@ async def generate_matching_image(topic: str, tone: str, generated_text: str, im
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "MAGNA AI Generator"
+        "X-Title": "MAGNA AI Suite"
     }
     data = {
         "model": "black-forest-labs/flux.2-klein-4b",
